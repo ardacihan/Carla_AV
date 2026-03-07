@@ -7,11 +7,8 @@ def generate_launch_description():
         Node(
             package='carla_interface',
             executable='interface_node',
-            output='screen'
+            name='carla_interface',
+            output='screen',
+            emulate_tty=True,
         ),
-        Node(
-            package='racing_perception',
-            executable='lidar_processing_node',
-            output='screen'
-        )
     ])

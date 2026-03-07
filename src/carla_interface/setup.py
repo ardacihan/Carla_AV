@@ -28,6 +28,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'interface_node = carla_interface.interface_node:main',
         ],
     },
 )

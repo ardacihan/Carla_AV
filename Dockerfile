@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y \
 # ----------------------------
 # Upgrade pip
 # ----------------------------
-RUN python3 -m pip install --upgrade pip setuptools wheel
+RUN python3 -m pip install --upgrade pip setuptools "setuptools==65.7.0" wheel
 
 # ----------------------------
 # Install CARLA Python API

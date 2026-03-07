@@ -23,7 +23,7 @@ setup(
         ],
     },
     entry_points={
-        'console_scripts': [
+        'console_scripts': ['lidar_processing_node = perception.lidar_processing_node:main',
         ],
     },
 )

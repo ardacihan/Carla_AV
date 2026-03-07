@@ -17,6 +17,7 @@ class LidarProcessing(Node):
 
     def lidar_callback(self, msg):
         self.get_logger().info("Received LiDAR frame")
+        self.get_logger().info(f"PointCloud2 data: width={msg.width}, height={msg.height}, point_step={msg.point_step}")
 
 
 def main(args=None):
