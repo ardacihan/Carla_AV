@@ -1,96 +1,125 @@
-# Launch Guide
+# CARLA + ROS2 Simulation Setup
 
-## Prerequisites
-- CARLA 0.9.16 installed at `~/Desktop/Carla_Sim`
-- Docker installed
-- Python 3.10 venv set up at `~/Desktop/Carla_Sim/PythonAPI/examples/carla-env`
+This guide launches a CARLA simulation on the host and publishes sensor data through ROS2 nodes running inside Docker.
+
+You can then subscribe to those topics from the host using ROS2 tools like `ros2 topic` or RViz.
 
 ---
 
-## 1 — Start CARLA Server (on host)
+# Requirements
 
-**Windowed** (if you want to see the simulation):
-```bash
-cd ~/Desktop/Carla_Sim
-./CarlaUE4.sh -windowed -ResX=1280 -ResY=720
-```
+Host system:
 
-**Headless** (no display, faster):
-```bash
-cd ~/Desktop/Carla_Sim
+Ubuntu 22.04
+ROS2 Humble installed
+Docker installed
+CARLA 0.9.16 downloaded
+---
+
+# Step 1 — Start the CARLA simulator
+
+Open a terminal on the host:
+
+cd ~/Carla_Sim
+
 ./CarlaUE4.sh -RenderOffScreen
-```
 
 ---
 
-## 2 — Start Manual Control (on host, optional)
+# Step 2 — Build the ROS2 Docker image
 
-Open a new terminal:
-```bash
-cd ~/Desktop/Carla_Sim/PythonAPI/examples
-source carla-env/bin/activate
-python manual_control.py
-```
+Open a new terminal.
 
-> **Note:** Use WASD / arrow keys to drive. Close this window to stop the vehicle.
-> Skip this step if you want the ROS2 node to control the vehicle instead.
-
----
-
-## 3 — Build Docker Image
-
-Only needed once, or after code changes:
-```bash
 cd ~/ros2_carla_ws
-docker rmi -f carla_ros2   # remove old image if rebuilding
+
 docker build -t carla_ros2 .
-```
 
 ---
 
-## 4 — Run Container
+# Step 3 — Start the ROS container
 
-```bash
-docker run -it --rm --network host carla_ros2 bash
-```
+Run the container using host networking so ROS DDS can communicate with the host.
 
-> `--network host` lets the container reach the CARLA server on `localhost:2000`.
+docker run -it --rm --network host -e ROS_DOMAIN_ID=0 -e RMW_IMPLEMENTATION=rmw_fastrtps_cpp -e ROS_LOCALHOST_ONLY=0 carla_ros2
 
 ---
 
-## 5 — Launch ROS2 Nodes (inside container)
+# Step 4 — Launch ROS nodes
 
-```bash
+Inside the container:
+
+ros2 launch carla_interface racing.launch.py
+
+You should see messages like:
+
+Vehicle spawned ...
+CarlaInterface ready — all sensors spawned
+
+---
+
+# Step 5 — Verify topics from host
+
+Open a new host terminal.
+
 source /opt/ros/humble/setup.bash
-source /ros2_ws/install/setup.bash
-ros2 launch carla_interface racing.launch.py
-```
 
-**If you made code changes and need to rebuild first:**
-```bash
-cd /ros2_ws
-rm -rf build/ install/ log/
-colcon build
-source install/setup.bash
-ros2 launch carla_interface racing.launch.py
-```
+List topics:
+
+ros2 topic list
+
+Expected output:
+
+/lidar/points
+/camera/image_raw
+/gnss/fix
+/imu/data
 
 ---
 
-## 6 — Visualize Point Cloud (optional, new terminal on host)
+# Step 6 — Subscribe to sensor data
 
-```bash
+Example:
+
+ros2 topic echo /imu/data --qos-reliability best_effort
+
+---
+
+# Step 7 — Visualize LiDAR (optional)
+
+Run RViz on the host:
+
 rviz2
-```
-Add a `PointCloud2` display and set the topic to `/lidar/points`.
+
+Add a display:
+
+PointCloud2
+
+Set topic:
+
+/lidar/points
 
 ---
 
-## Full Terminal Layout
+# Recommended terminal layout
 
-| Terminal | Location | Command |
-|----------|----------|---------|
-| 1 | Host | `./CarlaUE4.sh -windowed` |
-| 2 | Host | `python manual_control.py` (optional) |
-| 3 | Host | `docker run ... carla_ros2 bash` → launch nodes |
-| 4 | Host | `rviz2` (optional) |
+Terminal 1 (host)
+
+cd ~/Desktop/Carla_Sim
+./CarlaUE4.sh -windowed
+
+Terminal 2 (host)
+
+cd ~/ros2_carla_ws
+docker run --network host carla_ros2
+
+Terminal 3 (container)
+
+ros2 launch carla_interface racing.launch.py
+
+Terminal 4 (host)
+
+ros2 topic echo /imu/data
+
+Terminal 5 (host optional)
+
+rviz2

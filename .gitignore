@@ -1,3 +1,22 @@
-build
-install
-log
+# ROS2 / colcon build artifacts
+build/
+install/
+log/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Docker
+*.tar
+*.img
+
+# OS / editor files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Carla Ros bridge (including submodules)
+src/ros-bridge/ 
