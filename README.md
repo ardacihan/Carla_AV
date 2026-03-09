@@ -1,88 +1,192 @@
 # Launch Guide
 
 ## Prerequisites
-- CARLA 0.9.16 installed at `~/Desktop/Carla_Sim`
+- CARLA 0.9.15 installed at `~/Desktop/CARLA_0.9.15`
 - Docker installed
-- Python 3.10 venv set up at `~/Desktop/Carla_Sim/PythonAPI/examples/carla-env`
+- Python 3.10 venv at `~/Desktop/CARLA_0.9.15/PythonAPI/examples/carla-env`
 
 ---
 
-## 1 — Start CARLA Server (on host)
-
-**Windowed** (if you want to see the simulation):
-```bash
-cd ~/Desktop/Carla_Sim
-./CarlaUE4.sh -windowed -ResX=1280 -ResY=720
+## Architecture Overview
 ```
-
-**Headless** (no display, faster):
-```bash
-cd ~/Desktop/Carla_Sim
-./CarlaUE4.sh -RenderOffScreen
+Terminal 1            Terminal 2                  Terminal 3
+──────────────        ──────────────────────────  ──────────────────────────
+CARLA server    ───►  carla-ros-bridge container  Your nodes container
+(host)                (spawns ego vehicle,        (perception, control)
+                       publishes sensor topics)
 ```
 
 ---
 
-## 2 — Start Manual Control (on host, optional)
-
-Open a new terminal:
+## Step 1 — Start CARLA Server (host)
 ```bash
-cd ~/Desktop/Carla_Sim/PythonAPI/examples
-source carla-env/bin/activate
-python manual_control.py
+cd ~/Desktop/CARLA_0.9.15
+./CarlaUE4.sh -RenderOffScreen -carla-rpc-port=2000
 ```
 
-> **Note:** Use WASD / arrow keys to drive. Close this window to stop the vehicle.
-> Skip this step if you want the ROS2 node to control the vehicle instead.
+> Leave this terminal running. CARLA is ready when you see `Waiting for connection`.
 
 ---
 
-## 3 — Build Docker Image
+## Step 2 — Start carla-ros-bridge (host, new terminal)
+```bash
+docker run -it --rm --network host your_bridge_image \
+  ros2 launch carla_ros_bridge carla_ros_bridge_with_example_ego_vehicle.launch.py \
+    host:=localhost port:=2000
+```
+
+> The bridge spawns the ego vehicle and starts publishing sensor topics.
+> Verify it's working: `ros2 topic list | grep carla`
+
+---
+
+## Step 3 — Build your nodes image
 
 Only needed once, or after code changes:
 ```bash
 cd ~/ros2_carla_ws
-docker rmi -f carla_ros2   # remove old image if rebuilding
-docker build -t carla_ros2 .
+docker build -t carla_nodes .
 ```
 
----
-
-## 4 — Run Container
-
+To force a clean rebuild:
 ```bash
-docker run -it --rm --network host carla_ros2 bash
+docker rmi -f carla_nodes
+docker build -t carla_nodes .
 ```
-
-> `--network host` lets the container reach the CARLA server on `localhost:2000`.
 
 ---
 
-## 5 — Launch ROS2 Nodes (inside container)
+## Step 4 — Run the container (host, new terminal)
+```bash
+docker run -it --rm --network host carla_nodes bash
+```
 
+Then inside the container, source the workspace:
 ```bash
 source /opt/ros/humble/setup.bash
 source /ros2_ws/install/setup.bash
-ros2 launch carla_interface racing.launch.py
 ```
 
-**If you made code changes and need to rebuild first:**
+---
+
+## Step 5 — Running nodes
+
+### All nodes together (recommended)
+```bash
+ros2 launch bringup racing.launch.py
+```
+
+With overrides:
+```bash
+ros2 launch bringup racing.launch.py target_speed_mps:=8.0 max_throttle:=0.8
+```
+
+Perception only — no control commands sent to vehicle:
+```bash
+ros2 launch bringup racing.launch.py enable_control:=false
+```
+
+---
+
+### Nodes individually
+
+Each of these needs its own terminal with the workspace sourced.
+
+**Lidar node only:**
+```bash
+ros2 run perception lidar_node
+```
+Subscribes to: `/carla/ego_vehicle/lidar/lidar1/point_cloud`
+Publishes to:  `/perception/lidar/points`
+
+With parameter overrides:
+```bash
+ros2 run perception lidar_node --ros-args -p min_range:=1.0 -p max_range:=30.0
+```
+
+---
+
+**Camera node only:**
+```bash
+ros2 run perception camera_node
+```
+Subscribes to: `/carla/ego_vehicle/rgb_front/image`
+Publishes to:  `/perception/camera/annotated`
+
+---
+
+**Control node only:**
+```bash
+ros2 run control control_node
+```
+Subscribes to: `/carla/ego_vehicle/speedometer`, `/carla/ego_vehicle/odometry`
+Publishes to:  `/carla/ego_vehicle/vehicle_control_cmd`
+
+With parameter overrides:
+```bash
+ros2 run control control_node --ros-args -p target_speed_mps:=6.0 -p max_throttle:=0.5
+```
+
+---
+
+## Step 6 — Rebuilding after code changes (inside container)
+
+**Rebuild everything:**
 ```bash
 cd /ros2_ws
 rm -rf build/ install/ log/
 colcon build
 source install/setup.bash
-ros2 launch carla_interface racing.launch.py
+```
+
+**Rebuild one package only (faster):**
+```bash
+cd /ros2_ws
+colcon build --packages-select perception
+source install/setup.bash
 ```
 
 ---
 
-## 6 — Visualize Point Cloud (optional, new terminal on host)
-
+## Step 7 — Visualize (optional, new terminal on host)
 ```bash
 rviz2
 ```
-Add a `PointCloud2` display and set the topic to `/lidar/points`.
+
+| What | Display type | Topic |
+|------|-------------|-------|
+| Filtered lidar | `PointCloud2` | `/perception/lidar/points` |
+| Raw lidar | `PointCloud2` | `/carla/ego_vehicle/lidar/lidar1/point_cloud` |
+| Annotated camera | `Image` | `/perception/camera/annotated` |
+
+---
+
+## Useful Debug Commands
+
+Check what the bridge is publishing:
+```bash
+ros2 topic list | grep carla
+```
+
+Monitor vehicle speed:
+```bash
+ros2 topic echo /carla/ego_vehicle/speedometer
+```
+
+Monitor control commands being sent:
+```bash
+ros2 topic echo /carla/ego_vehicle/vehicle_control_cmd
+```
+
+Check a node is alive:
+```bash
+ros2 node list
+```
+
+Check topic frequency:
+```bash
+ros2 topic hz /perception/lidar/points
+```
 
 ---
 
@@ -90,7 +194,22 @@ Add a `PointCloud2` display and set the topic to `/lidar/points`.
 
 | Terminal | Location | Command |
 |----------|----------|---------|
-| 1 | Host | `./CarlaUE4.sh -windowed` |
-| 2 | Host | `python manual_control.py` (optional) |
-| 3 | Host | `docker run ... carla_ros2 bash` → launch nodes |
+| 1 | Host | CARLA server |
+| 2 | Host | carla-ros-bridge container |
+| 3 | Container | your nodes (`ros2 launch bringup racing.launch.py`) |
 | 4 | Host | `rviz2` (optional) |
+
+---
+
+## Manual Control (optional, instead of control node)
+
+If you want to drive the vehicle yourself rather than use the control node:
+```bash
+cd ~/Desktop/CARLA_0.9.15/PythonAPI/examples
+source carla-env/bin/activate
+python manual_control.py
+```
+
+> WASD / arrow keys to drive. If running this, launch with `enable_control:=false`
+> so the control node doesn't fight your inputs:
+> `ros2 launch bringup racing.launch.py enable_control:=false`

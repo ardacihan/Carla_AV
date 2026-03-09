@@ -1,4 +1,6 @@
 from setuptools import find_packages, setup
+import os
+from glob import glob
 
 package_name = 'perception'
 
@@ -10,6 +12,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -17,13 +20,11 @@ setup(
     maintainer_email='arda@todo.todo',
     description='TODO: Package description',
     license='TODO: License declaration',
-    extras_require={
-        'test': [
-            'pytest',
-        ],
-    },
+    extras_require={'test': ['pytest']},
     entry_points={
-        'console_scripts': ['lidar_processing_node = perception.lidar_processing_node:main',
+        'console_scripts': [
+            'lidar_node = perception.lidar_processing_node:main',
+            'camera_node = perception.camera_node:main',
         ],
     },
 )

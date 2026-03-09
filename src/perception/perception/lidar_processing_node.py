@@ -10,7 +10,7 @@ class LidarProcessing(Node):
 
         self.subscription = self.create_subscription(
             PointCloud2,
-            '/lidar/points',
+            '/carla/hero/lidar',
             self.lidar_callback,
             10
         )
