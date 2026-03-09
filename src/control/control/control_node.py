@@ -14,7 +14,13 @@ from rclpy.node import Node
 from std_msgs.msg import Float32
 from nav_msgs.msg import Odometry
 from carla_msgs.msg import CarlaEgoVehicleControl
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 
+BEST_EFFORT_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+    depth=10,
+)
 
 class ControlNode(Node):
 
@@ -37,20 +43,20 @@ class ControlNode(Node):
             Float32,
             '/carla/hero/speedometer',
             self._speed_callback,
-            10,
+            BEST_EFFORT_QOS,
         )
         self.create_subscription(
             Odometry,
             '/carla/hero/odometry',
             self._odom_callback,
-            10,
+            BEST_EFFORT_QOS,
         )
 
         # ── Publisher ───────────────────────────────────────────────────
         self.control_pub = self.create_publisher(
             CarlaEgoVehicleControl,
             '/carla/hero/vehicle_control_cmd',
-            10,
+            BEST_EFFORT_QOS,
         )
 
         # ── Control loop at 20 Hz ────────────────────────────────────────

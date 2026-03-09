@@ -24,7 +24,6 @@ setup(
     entry_points={
         'console_scripts': [
             'lidar_node = perception.lidar_processing_node:main',
-            'camera_node = perception.camera_node:main',
         ],
     },
 )
