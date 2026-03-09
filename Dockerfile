@@ -1,44 +1,63 @@
-FROM ros:jazzy-ros-base
+# ----------------------------
+# Dockerfile for ROS2 Humble + CARLA 0.9.16
+# ----------------------------
 
-ENV ROS_DOMAIN_ID=0
-ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-ENV ROS_LOCALHOST_ONLY=0
+FROM ros:humble-ros-base
 
-SHELL ["/bin/bash","-c"]
+ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-c"]
 
 # ----------------------------
-# System dependencies
+# System + ROS dependencies
 # ----------------------------
 RUN apt-get update && apt-get install -y \
-    python3-colcon-common-extensions \
     python3-pip \
+    python3-colcon-common-extensions \
     python3-opencv \
     python3-numpy \
-    git \
-    cmake \
     build-essential \
-    libpcl-dev \
-    ros-jazzy-pcl-conversions \
-    ros-jazzy-cv-bridge \
-    ros-jazzy-tf2-ros \
-    ros-jazzy-rviz2 \
+    git \
+    tree \
+    ros-humble-rclpy \
+    ros-humble-std-msgs \
+    ros-humble-sensor-msgs \
+    ros-humble-geometry-msgs \
+    ros-humble-cv-bridge \
+    ros-humble-rviz2 \
     && rm -rf /var/lib/apt/lists/*
 
 # ----------------------------
-# Workspace
+# Upgrade pip
+# ----------------------------
+RUN python3 -m pip install --upgrade pip setuptools "setuptools==65.7.0" wheel
+
+# ----------------------------
+# Install CARLA Python API
+# ----------------------------
+COPY carla-0.9.16-cp310-cp310-manylinux_2_31_x86_64.whl /tmp/
+RUN python3 -m pip install /tmp/carla-0.9.16-cp310-cp310-manylinux_2_31_x86_64.whl
+
+# ----------------------------
+# Create workspace
 # ----------------------------
 WORKDIR /ros2_ws
-COPY src src
+
+# Copy only src (build/install/log must NOT exist inside src)
+COPY src/ src/
 
 # ----------------------------
 # Build workspace
 # ----------------------------
-RUN . /opt/ros/jazzy/setup.bash && colcon build --symlink-install
+RUN source /opt/ros/humble/setup.bash && \
+    colcon build
 
 # ----------------------------
 # Auto-source workspace
 # ----------------------------
-RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc && \
+RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc && \
     echo "source /ros2_ws/install/setup.bash" >> ~/.bashrc
 
+# ----------------------------
+# Default command
+# ----------------------------
 CMD ["bash"]
