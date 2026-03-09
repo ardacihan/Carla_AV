@@ -10,7 +10,7 @@
 ```
 Host                    Single Container (carla_nodes)
 ──────────────          ──────────────────────────────────────
-CARLA server  ───────►  carla-ros-bridge  +  your nodes + rviz2
+CARLA server  ───────►  carla-ros-bridge  +  rclpy nodes + rviz2
 (port 2000)             
 ```
 
@@ -26,7 +26,6 @@ cd ~/Desktop/CARLA_0.9.15
 
 ## Step 2 — Build image
 
-Only needed once, or after code changes:
 ```bash
 cd ~/CARLA_AV
 docker build --no-cache -t carla_nodes .
